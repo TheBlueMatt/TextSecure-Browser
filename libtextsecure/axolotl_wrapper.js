@@ -22,6 +22,12 @@
                 return textsecure.storage.removeEncrypted(key);
             },
         },
+        updateKeys: function(keys) {
+            return textsecure.api.registerKeys(keys).catch(function(e) {
+                //TODO: Notify the user somehow?
+                console.error(e);
+            });
+        },
     };
 
     window.textsecure = window.textsecure || {};
@@ -68,4 +74,20 @@
             }
         }
     };
+
+    var wipeIdentityAndTryMessageAgain = function(from, encodedMessage, message_id) {
+        // Wipe identity key!
+        //TODO: Encapsuate with the rest of textsecure.storage.devices
+        textsecure.storage.removeEncrypted("devices" + from.split('.')[0]);
+        //TODO: Probably breaks with a devicecontrol message
+        return textsecure.protocol.handlePreKeyWhisperMessage(from, encodedMessage).then(
+            function(pushMessageContent) {
+                extension.trigger('message:decrypted', {
+                    message_id : message_id,
+                    data       : pushMessageContent
+                });
+            }
+        );
+    }
+    textsecure.replay.registerFunction(wipeIdentityAndTryMessageAgain, textsecure.replay.Type.INIT_SESSION);
 })();
